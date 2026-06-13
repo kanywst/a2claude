@@ -75,7 +75,7 @@ class ClaudeBackend:
         max_budget_usd: float | None = None,
         setting_sources: list[SettingSource] | None = None,
     ) -> None:
-        self.cwd = cwd or os.getcwd()
+        self.cwd = os.path.abspath(cwd or os.getcwd())
         self.allowed_tools = allowed_tools
         self.permission_mode = permission_mode
         self.model = model

@@ -28,6 +28,15 @@ def _unified(path: str, before: str, after: str) -> str:
     return diff
 
 
+def _text(value: Any) -> str:
+    """Coerce a tool-input field to text, treating a missing/null value as empty.
+
+    ``dict.get(key, "")`` returns ``None`` when the key is present but null, so
+    plain ``str(...)`` would yield the literal ``"None"``.
+    """
+    return "" if value is None else str(value)
+
+
 def file_changes(tool_name: str, tool_input: dict[str, Any]) -> list[FileChange]:
     """Return the file changes a tool call would make, if any."""
     if tool_name not in _EDIT_TOOLS:
@@ -37,12 +46,12 @@ def file_changes(tool_name: str, tool_input: dict[str, Any]) -> list[FileChange]
         return []
 
     if tool_name == "Write":
-        diff = _unified(path, "", str(tool_input.get("content", "")))
+        diff = _unified(path, "", _text(tool_input.get("content")))
     elif tool_name == "Edit":
         diff = _unified(
             path,
-            str(tool_input.get("old_string", "")),
-            str(tool_input.get("new_string", "")),
+            _text(tool_input.get("old_string")),
+            _text(tool_input.get("new_string")),
         )
     else:  # MultiEdit — edits may be malformed; tolerate anything non-dict.
         edits = tool_input.get("edits")
@@ -51,8 +60,8 @@ def file_changes(tool_name: str, tool_input: dict[str, Any]) -> list[FileChange]
         diff = "".join(
             _unified(
                 path,
-                str(edit.get("old_string", "")),
-                str(edit.get("new_string", "")),
+                _text(edit.get("old_string")),
+                _text(edit.get("new_string")),
             )
             for edit in edits
             if isinstance(edit, dict)

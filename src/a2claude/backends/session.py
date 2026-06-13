@@ -102,6 +102,12 @@ class BackendSession:
                 self.last_request_id = item.request_id
                 return
 
+    def abort(self) -> None:
+        """Cancel the background runner without awaiting — safe to call from a
+        cancelled context (e.g. an interrupted ``execute``)."""
+        if self._runner is not None and not self._runner.done():
+            self._runner.cancel()
+
     async def close(self) -> None:
         if self._runner is not None and not self._runner.done():
             self._runner.cancel()

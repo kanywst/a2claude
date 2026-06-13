@@ -16,6 +16,7 @@ new task in the same context resumes the same Claude conversation.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from uuid import uuid4
@@ -195,6 +196,13 @@ class ClaudeCodeExecutor(AgentExecutor):
                     stream.metadata = self._result_metadata(event)
                     if event.session_id:
                         self._session_ids[context_id] = event.session_id
+        except asyncio.CancelledError:
+            # Client disconnected / timed out: drop the session and its runner
+            # instead of leaking them. Synchronous cleanup — we are cancelled.
+            self._live.pop(task_id, None)
+            self._streams.pop(task_id, None)
+            session.abort()
+            raise
         except Exception:  # noqa: BLE001 — surface failure without leaking details
             logger.exception("backend run failed for task %s", task_id)
             await self._discard(task_id, session)

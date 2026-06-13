@@ -116,6 +116,15 @@ def test_file_changes_multiedit_malformed_does_not_raise():
     assert file_changes("MultiEdit", {"file_path": "a.py", "edits": ["x", 1]}) == []
 
 
+def test_file_changes_handles_null_fields():
+    changes = file_changes(
+        "Edit", {"file_path": "a.py", "old_string": None, "new_string": "x = 1"}
+    )
+    assert changes
+    assert "None" not in changes[0].diff
+    assert "+x = 1" in changes[0].diff
+
+
 def test_file_changes_ignores_non_edit_tools():
     assert file_changes("Bash", {"command": "ls"}) == []
 

@@ -17,6 +17,7 @@ new task in the same context resumes the same Claude conversation.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from uuid import uuid4
 
 from a2a.server.agent_execution import AgentExecutor, RequestContext
@@ -39,6 +40,16 @@ from .backends.session import BackendSession
 logger = logging.getLogger(__name__)
 
 _ALLOW_WORDS = {"allow", "yes", "y", "approve", "ok", "accept", "grant"}
+
+
+@dataclass
+class _Stream:
+    """Response-stream state for a task, persisted across permission pauses."""
+
+    artifact_id: str
+    chunks: list[str] = field(default_factory=list)
+    pending: str | None = None
+    metadata: dict[str, object] = field(default_factory=dict)
 
 
 def _build_prompt(context: RequestContext) -> str:
@@ -94,6 +105,8 @@ class ClaudeCodeExecutor(AgentExecutor):
         self._session_ids: dict[str, str] = {}
         # task_id -> live session, for resuming a task paused on a permission.
         self._live: dict[str, BackendSession] = {}
+        # task_id -> response-stream state, kept across permission pauses.
+        self._streams: dict[str, _Stream] = {}
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
         task_id, context_id = context.task_id, context.context_id
@@ -140,27 +153,26 @@ class ClaudeCodeExecutor(AgentExecutor):
         context_id: str,
         session: BackendSession,
     ) -> None:
-        artifact_id = uuid4().hex
-        pending_text: str | None = None
-        text_chunks: list[str] = []
-        metadata: dict[str, object] = {}
+        # One stream of artifacts/text per task, kept across permission pauses so
+        # the response stays a single artifact and the completion text is whole.
+        stream = self._streams.setdefault(task_id, _Stream(artifact_id=uuid4().hex))
 
         async def flush(text: str, *, last: bool) -> None:
             await updater.add_artifact(
                 [Part(text=text)],
-                artifact_id=artifact_id,
+                artifact_id=stream.artifact_id,
                 name="response",
-                append=len(text_chunks) > 1,
+                append=len(stream.chunks) > 1,
                 last_chunk=last,
             )
 
         try:
             async for event in session.drain():
                 if isinstance(event, TextDelta):
-                    if pending_text is not None:
-                        text_chunks.append(pending_text)
-                        await flush(pending_text, last=False)
-                    pending_text = event.text
+                    if stream.pending is not None:
+                        stream.chunks.append(stream.pending)
+                        await flush(stream.pending, last=False)
+                    stream.pending = event.text
                 elif isinstance(event, ToolUse):
                     await updater.update_status(
                         TaskState.TASK_STATE_WORKING,
@@ -174,44 +186,45 @@ class ClaudeCodeExecutor(AgentExecutor):
                         name=event.path,
                     )
                 elif isinstance(event, PermissionRequest):
-                    if pending_text is not None:
-                        text_chunks.append(pending_text)
-                        await flush(pending_text, last=True)
-                        pending_text = None
+                    if stream.pending is not None:
+                        stream.chunks.append(stream.pending)
+                        await flush(stream.pending, last=False)
+                        stream.pending = None
                     await self._request_input(updater, event)
                 elif isinstance(event, Result):
-                    metadata = self._result_metadata(event)
+                    stream.metadata = self._result_metadata(event)
                     if event.session_id:
                         self._session_ids[context_id] = event.session_id
-        except Exception as exc:  # noqa: BLE001 — surface any failure to the client
+        except Exception:  # noqa: BLE001 — surface failure without leaking details
             logger.exception("backend run failed for task %s", task_id)
             await self._discard(task_id, session)
             await updater.failed(
                 message=updater.new_agent_message(
-                    [Part(text=f"Claude Code run failed: {exc}")]
+                    [Part(text="Claude Code run failed; see server logs.")]
                 )
             )
             return
 
-        if pending_text is not None:
-            text_chunks.append(pending_text)
-            await flush(pending_text, last=True)
-
         if not session.done:
-            # Paused on a permission request; stay registered for the follow-up.
+            # Paused on a permission request; keep the stream for the follow-up.
             return
 
+        if stream.pending is not None:
+            stream.chunks.append(stream.pending)
+            await flush(stream.pending, last=True)
+
         await self._discard(task_id, session)
-        full_text = "".join(text_chunks) or "(no text output)"
+        full_text = "".join(stream.chunks) or "(no text output)"
         await updater.complete(
             message=updater.new_agent_message(
-                [Part(text=full_text)], metadata=metadata or None
+                [Part(text=full_text)], metadata=stream.metadata or None
             )
         )
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
         task_id, context_id = context.task_id, context.context_id
         assert task_id is not None and context_id is not None
+        self._streams.pop(task_id, None)
         session = self._live.pop(task_id, None)
         if session is not None:
             await session.close()
@@ -248,6 +261,7 @@ class ClaudeCodeExecutor(AgentExecutor):
 
     async def _discard(self, task_id: str, session: BackendSession) -> None:
         self._live.pop(task_id, None)
+        self._streams.pop(task_id, None)
         await session.close()
 
     @staticmethod

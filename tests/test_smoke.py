@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from a2claude.backends import (
     BackendSession,
     PermissionDecision,
@@ -21,14 +23,16 @@ async def _drive(backend, request):
     session = BackendSession()
     session.start(lambda s: backend.drive(s, request))
     events = []
-    while not session.done:
-        async for event in session.drain():
-            events.append(event)
-            if isinstance(event, PermissionRequest):
-                session.resolve(
-                    PermissionDecision(request_id=event.request_id, allow=True)
-                )
-    await session.close()
+    try:
+        while not session.done:
+            async for event in session.drain():
+                events.append(event)
+                if isinstance(event, PermissionRequest):
+                    session.resolve(
+                        PermissionDecision(request_id=event.request_id, allow=True)
+                    )
+    finally:
+        await session.close()
     return events
 
 
@@ -114,6 +118,12 @@ def test_file_changes_multiedit_malformed_does_not_raise():
 
 def test_file_changes_ignores_non_edit_tools():
     assert file_changes("Bash", {"command": "ls"}) == []
+
+
+async def test_resolve_unknown_request_raises():
+    session = BackendSession()
+    with pytest.raises(ValueError):
+        session.resolve(PermissionDecision(request_id="missing", allow=True))
 
 
 def test_build_app_returns_asgi_app():

@@ -51,6 +51,7 @@ exercise the whole path offline first:
 
 ```bash
 uv run a2claude serve --backend echo &
+# once the "Uvicorn running" line appears:
 uv run a2claude call "fix the failing test"
 ```
 

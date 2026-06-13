@@ -27,6 +27,7 @@ def test_events_from_assistant_message_with_write():
     )
     events = list(events_from_message(message))
 
+    assert len(events) == 3
     assert isinstance(events[0], TextDelta)
     assert events[0].text == "creating the file"
     assert isinstance(events[1], ToolUse)

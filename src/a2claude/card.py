@@ -73,7 +73,8 @@ def build_card(
         name=name,
         description=description
         or "Claude Code as an A2A agent — generation, refactoring, "
-        "debugging, review, and testing over a real project workspace.",
+        "debugging, review, testing, and explanation over a real project "
+        "workspace.",
         version=VERSION,
         capabilities=AgentCapabilities(
             streaming=streaming,

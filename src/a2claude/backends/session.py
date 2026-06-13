@@ -77,7 +77,10 @@ class BackendSession:
 
     def resolve(self, decision: PermissionDecision) -> None:
         future = self._pending.pop(decision.request_id, None)
-        if future is not None and not future.done():
+        if future is None:
+            # Fail fast: a no-op would leave the driver parked and hang drain().
+            raise ValueError(f"no pending permission request {decision.request_id!r}")
+        if not future.done():
             future.set_result(decision)
 
     async def drain(self) -> AsyncIterator[BackendEvent]:

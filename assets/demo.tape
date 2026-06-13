@@ -11,7 +11,7 @@ Set Padding 20
 Set Theme "Catppuccin Mocha"
 
 Hide
-Type "cd /Users/takumaniwa/a2claude && source .venv/bin/activate && export PS1='$ ' _ZO_DOCTOR=0 && clear"
+Type 'cd "$(git rev-parse --show-toplevel)" && source .venv/bin/activate && export PS1="$ " _ZO_DOCTOR=0 && clear'
 Enter
 Sleep 1.5s
 Type "a2claude serve --backend echo > /tmp/demo.log 2>&1 &"

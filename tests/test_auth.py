@@ -69,3 +69,12 @@ def test_correct_token_passes_auth():
 def test_no_auth_by_default():
     resp = _client().post("/", json={"jsonrpc": "2.0", "id": 1, "method": "x"})
     assert resp.status_code != 401
+
+
+def test_middleware_rejects_empty_token():
+    import pytest
+
+    from a2claude.auth import BearerAuthMiddleware
+
+    with pytest.raises(ValueError, match="empty"):
+        BearerAuthMiddleware(lambda *a: None, token="   ")

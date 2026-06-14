@@ -33,8 +33,12 @@ class BearerAuthMiddleware:
         token: str,
         public_prefixes: tuple[str, ...] = _PUBLIC_PREFIXES,
     ) -> None:
+        if not token.strip():
+            raise ValueError("auth token must not be empty")
         self.app = app
-        self._token = token
+        # Keep the token as bytes so it compares directly against the raw
+        # header bytes without a decode step.
+        self._token = token.encode("utf-8")
         self._public = public_prefixes
 
     async def __call__(self, scope: dict, receive: Receive, send: Send) -> None:
@@ -51,12 +55,12 @@ class BearerAuthMiddleware:
 
     def _authorized(self, scope: dict) -> bool:
         headers = dict(scope.get("headers") or [])
-        raw = headers.get(b"authorization", b"").decode("latin-1")
-        scheme, _, value = raw.partition(" ")
-        if scheme.lower() != "bearer":
+        raw = headers.get(b"authorization", b"")
+        scheme, _, value = raw.partition(b" ")
+        if scheme.lower() != b"bearer":
             return False
-        # Constant-time compare so a wrong token does not leak its length/prefix
-        # through timing.
+        # Constant-time compare on raw bytes so a wrong token does not leak its
+        # length/prefix through timing, and no decoding can change the value.
         return hmac.compare_digest(value.strip(), self._token)
 
     @staticmethod

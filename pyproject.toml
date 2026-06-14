@@ -17,8 +17,9 @@ dependencies = [
 
 [project.optional-dependencies]
 # Distributed tracing. Pulls the A2A SDK's OpenTelemetry instrumentation plus
-# the API/SDK a2claude's own spans need. Install with `a2claude[telemetry]`.
-telemetry = ["a2a-sdk[telemetry]>=1.1,<2"]
+# the API a2claude's own spans import directly (declared rather than relied on
+# transitively through the SDK). Install with `a2claude[telemetry]`.
+telemetry = ["a2a-sdk[telemetry]>=1.1,<2", "opentelemetry-api>=1.33"]
 
 [project.scripts]
 a2claude = "a2claude.cli:app"

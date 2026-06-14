@@ -50,8 +50,15 @@ def serve(
     sign_alg: str = typer.Option(
         "ES256", help="JWS algorithm for the card signature (e.g. ES256, RS256)."
     ),
+    auth_token_file: str = typer.Option(
+        None,
+        help="Path to a file holding a bearer token. When set, callers must "
+        "send 'Authorization: Bearer <token>' and the card advertises it.",
+    ),
 ) -> None:
     """Start the A2A server."""
+    from pathlib import Path
+
     from .backends import make_backend
     from .server import build_app
 
@@ -77,7 +84,21 @@ def serve(
         except (OSError, ValueError) as e:
             raise typer.BadParameter(f"invalid --sign-key: {e}") from e
 
-    asgi_app = build_app(drv, url=_local_url(host, port), card_signer=card_signer)
+    auth_token = None
+    if auth_token_file:
+        try:
+            auth_token = Path(auth_token_file).read_text().strip()
+        except OSError as e:
+            raise typer.BadParameter(f"invalid --auth-token-file: {e}") from e
+        if not auth_token:
+            raise typer.BadParameter("--auth-token-file is empty")
+
+    asgi_app = build_app(
+        drv,
+        url=_local_url(host, port),
+        card_signer=card_signer,
+        auth_token=auth_token,
+    )
     typer.echo(f"a2claude: backend={backend} card={_local_url(host, port)}")
     uvicorn.run(asgi_app, host=host, port=port, log_level="info")
 

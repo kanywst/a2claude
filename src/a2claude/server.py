@@ -26,7 +26,9 @@ from a2a.server.tasks import (
 )
 from a2a.types import AgentCard
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
 
+from .auth import BearerAuthMiddleware
 from .backends.base import Backend
 from .card import build_card
 from .executor import ClaudeCodeExecutor
@@ -37,8 +39,14 @@ def build_app(
     *,
     url: str,
     card_signer: Callable[[AgentCard], AgentCard] | None = None,
+    auth_token: str | None = None,
 ) -> Starlette:
-    card = build_card(url, streaming=True, push_notifications=True)
+    card = build_card(
+        url,
+        streaming=True,
+        push_notifications=True,
+        require_auth=auth_token is not None,
+    )
     if card_signer is not None:
         card = card_signer(card)
 
@@ -68,4 +76,9 @@ def build_app(
         *create_jsonrpc_routes(handler, rpc_url="/", enable_v0_3_compat=True),
         *create_rest_routes(handler, enable_v0_3_compat=True),
     ]
-    return Starlette(routes=routes, lifespan=lifespan)
+    middleware = (
+        [Middleware(BearerAuthMiddleware, token=auth_token)]
+        if auth_token is not None
+        else None
+    )
+    return Starlette(routes=routes, lifespan=lifespan, middleware=middleware)

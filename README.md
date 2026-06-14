@@ -114,6 +114,18 @@ uv run a2claude serve --sign-key card-signing.pem --sign-kid my-key-1 --sign-alg
 
 The card is then served with a JWS signature over its canonical form. `--sign-key` is a path to a file holding the key: a PEM private key for asymmetric algorithms (`ES256`, `RS256`), or a shared secret for `HS256`. `--sign-kid` is the key id a verifier uses to look up the matching public key. Unsigned is still the default.
 
+## Caller authentication
+
+A signed card proves who the server is; this proves the caller is allowed in. Require a bearer token and the server rejects any task request that does not carry it:
+
+```bash
+uv run a2claude serve --auth-token-file caller-token.txt
+```
+
+When `--auth-token-file` is set, callers must send `Authorization: Bearer <token>`; a request without a valid token gets `401 Unauthorized`. The agent card stays public so a caller can still fetch it to discover the requirement, and the card advertises the bearer scheme in `securitySchemes`. Without the flag the server stays open, as before.
+
+A2A keeps the credential at the HTTP layer, so this composes with whatever your gateway already does: terminate TLS, validate OAuth, or rate-limit in front, and let the server enforce the token behind it.
+
 ## Permissions
 
 A tool that needs approval pauses the task in the A2A `input-required` state instead of being skipped. The caller answers with a follow-up message on the same task:

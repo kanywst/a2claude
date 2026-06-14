@@ -21,13 +21,13 @@ session on the next turn.
 
 ## How it maps to A2A
 
-| Claude Code produces | A2A surface it lands on |
-| --- | --- |
-| Assistant text | A streamed artifact (`append` / `last_chunk`) |
-| A tool call (Bash, Edit) | A `working` status update for the action |
-| A file edit | A named artifact carrying the diff |
-| Run result | Cost, turns, and usage on the completion message |
-| Session id | Mapped to the A2A `contextId` so follow-ups resume |
+| Claude Code produces     | A2A surface it lands on                            |
+| ------------------------ | -------------------------------------------------- |
+| Assistant text           | A streamed artifact (`append` / `last_chunk`)      |
+| A tool call (Bash, Edit) | A `working` status update for the action           |
+| A file edit              | A named artifact carrying the diff                 |
+| Run result               | Cost, turns, and usage on the completion message   |
+| Session id               | Mapped to the A2A `contextId` so follow-ups resume |
 
 The mapping lives in one place (`executor.py`). Backends only emit
 normalized events; they never touch the protocol.
@@ -79,11 +79,11 @@ uv run a2claude call "now add a test for it" --context <context-id>
 
 ## Commands
 
-| Command | Description |
-| --- | --- |
-| `a2claude serve` | Start the A2A server |
+| Command              | Description                                  |
+| -------------------- | -------------------------------------------- |
+| `a2claude serve`     | Start the A2A server                         |
 | `a2claude call TEXT` | Send a message and print the streamed events |
-| `a2claude card` | Fetch and print the agent card |
+| `a2claude card`      | Fetch and print the agent card               |
 
 The agent card is served at `/.well-known/agent-card.json` and advertises
 Claude Code's abilities as discrete skills (generation, refactor, debug,

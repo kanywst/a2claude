@@ -10,8 +10,18 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill
+from a2a.types import (
+    AgentCapabilities,
+    AgentCard,
+    AgentInterface,
+    AgentSkill,
+    SecurityRequirement,
+)
 from a2a.utils.constants import PROTOCOL_VERSION_CURRENT, TransportProtocol
+
+# The id used for the bearer scheme in the card's security_schemes map and in
+# each security requirement that references it.
+BEARER_SCHEME = "bearer"
 
 VERSION = "0.1.0"
 
@@ -71,8 +81,9 @@ def build_card(
     description: str | None = None,
     streaming: bool = True,
     push_notifications: bool = True,
+    require_auth: bool = False,
 ) -> AgentCard:
-    return AgentCard(
+    card = AgentCard(
         name=name,
         description=description
         or "Claude Code as an A2A agent: generation, refactoring, "
@@ -102,6 +113,17 @@ def build_card(
         default_input_modes=["text/plain"],
         default_output_modes=["text/plain"],
     )
+    if require_auth:
+        # Declare an HTTP bearer scheme and require it, so a caller learns from
+        # the card that it must present a token before sending a task. A2A keeps
+        # the credential at the HTTP layer; the card only advertises the
+        # requirement.
+        card.security_schemes[BEARER_SCHEME].http_auth_security_scheme.scheme = "bearer"
+        requirement = SecurityRequirement()
+        # Reference the bearer scheme with no extra scopes (an empty scope list).
+        requirement.schemes[BEARER_SCHEME].SetInParent()
+        card.security_requirements.append(requirement)
+    return card
 
 
 def sign_card(

@@ -53,6 +53,7 @@ dependencies = [
 [package.optional-dependencies]
 telemetry = [
     { name = "a2a-sdk", extra = ["telemetry"] },
+    { name = "opentelemetry-api" },
 ]
 
 [package.dev-dependencies]
@@ -70,6 +71,7 @@ requires-dist = [
     { name = "a2a-sdk", extras = ["telemetry"], marker = "extra == 'telemetry'", specifier = ">=1.1,<2" },
     { name = "claude-agent-sdk", specifier = ">=0.2.101" },
     { name = "httpx", specifier = ">=0.28" },
+    { name = "opentelemetry-api", marker = "extra == 'telemetry'", specifier = ">=1.33" },
     { name = "typer", specifier = ">=0.26" },
     { name = "uvicorn", specifier = ">=0.49" },
 ]

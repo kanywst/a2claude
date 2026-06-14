@@ -118,11 +118,13 @@ class ClaudeCodeExecutor(AgentExecutor):
         self._streams: dict[str, _Stream] = {}
 
     async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
+        # span() drops None-valued attributes, so no fallbacks are needed; the
+        # ids are populated by the SDK before execute is called.
         with span(
             "a2claude.execute",
             **{
-                "a2a.task_id": context.task_id or "",
-                "a2a.context_id": context.context_id or "",
+                "a2a.task_id": context.task_id,
+                "a2a.context_id": context.context_id,
                 "a2claude.backend": self._backend.name,
             },
         ):

@@ -69,7 +69,11 @@ async def test_eviction_prefers_parked_over_running(monkeypatch):
         assert "parked" not in executor._live
         assert "running" in executor._live
     finally:
+        # Close both: the evicted one is already closed (close is idempotent),
+        # but on an unexpected eviction outcome the survivor would leak its
+        # background runner without this.
         await running.close()
+        await parked.close()
 
 
 async def test_eviction_falls_back_to_oldest_when_none_parked(monkeypatch):
@@ -86,4 +90,5 @@ async def test_eviction_falls_back_to_oldest_when_none_parked(monkeypatch):
         assert "first" not in executor._live
         assert "second" in executor._live
     finally:
+        await first.close()
         await second.close()

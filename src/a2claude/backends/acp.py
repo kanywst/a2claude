@@ -26,6 +26,7 @@ protocol translation is unit-testable without launching an agent subprocess.
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
@@ -172,7 +173,10 @@ class _BridgeClient(Client):
     ) -> s.ReadTextFileResponse:
         # We advertise fs.readTextFile, so serve reads from disk. There are no
         # unsaved editor buffers on a server; the file on disk is the truth.
-        text = self._safe_path(path).read_text(encoding="utf-8")
+        # Offloaded to a thread so the synchronous read can't stall the event
+        # loop the ACP connection runs on.
+        target = self._safe_path(path)
+        text = await asyncio.to_thread(target.read_text, encoding="utf-8")
         if line is not None or limit is not None:
             lines = text.splitlines(keepends=True)
             # A non-positive line number would slice from the end; clamp to 0.
@@ -185,8 +189,13 @@ class _BridgeClient(Client):
         self, content: str, path: str, session_id: str, **_: Any
     ) -> None:
         target = self._safe_path(path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
+
+        def _write() -> None:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+
+        # Offloaded so the blocking mkdir/write can't stall the event loop.
+        await asyncio.to_thread(_write)
         return None
 
 

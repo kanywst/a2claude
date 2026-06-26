@@ -28,6 +28,15 @@ def _unified(path: str, before: str, after: str) -> str:
     return diff
 
 
+def unified_diff(path: str, before: str, after: str) -> str:
+    """Build a unified diff from full before/after file text.
+
+    Used by the ACP backend, whose diff tool-call content carries the complete
+    old and new file contents rather than an edit description.
+    """
+    return _unified(path, before, after)
+
+
 def _text(value: Any) -> str:
     """Coerce a tool-input field to text, treating a missing/null value as empty.
 

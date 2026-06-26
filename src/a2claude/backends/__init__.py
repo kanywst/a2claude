@@ -35,13 +35,17 @@ __all__ = [
 def make_backend(name: str, **kwargs) -> Backend:
     """Construct a backend by name.
 
-    ``claude`` is imported lazily so the echo backend works without the Claude
-    Agent SDK's runtime dependencies present.
+    ``acp`` and ``claude`` are imported lazily so the echo backend works without
+    their runtime dependencies (the ACP SDK / the Claude Agent SDK) present.
     """
     if name == "echo":
         return EchoBackend()
+    if name == "acp":
+        from .acp import ACPBackend
+
+        return ACPBackend(**kwargs)
     if name == "claude":
         from .claude import ClaudeBackend
 
         return ClaudeBackend(**kwargs)
-    raise ValueError(f"unknown backend: {name!r} (expected 'echo' or 'claude')")
+    raise ValueError(f"unknown backend: {name!r} (expected 'acp', 'claude', or 'echo')")

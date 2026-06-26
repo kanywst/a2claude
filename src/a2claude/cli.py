@@ -17,7 +17,17 @@ import httpx
 import typer
 import uvicorn
 
-app = typer.Typer(add_completion=False, help="Run Claude Code as an A2A server.")
+app = typer.Typer(
+    add_completion=False,
+    help="Serve a coding agent (Claude Code and other ACP agents) over A2A.",
+)
+
+# Human-facing card names for the ACP agents shipped with a launch preset.
+_AGENT_CARD_NAMES = {
+    "claude": "Claude Code",
+    "gemini": "Gemini CLI",
+    "codex": "Codex",
+}
 
 
 def _validate_permission_mode(value: str | None) -> None:
@@ -58,8 +68,20 @@ def _local_url(host: str, port: int) -> str:
 
 @app.command()
 def serve(
-    backend: str = typer.Option("claude", help="Backend: 'claude' or 'echo'."),
-    cwd: str = typer.Option(".", help="Project directory Claude Code works in."),
+    backend: str = typer.Option(
+        "acp", help="Backend: 'acp' (any ACP agent), 'claude' (Claude SDK), 'echo'."
+    ),
+    agent: str = typer.Option(
+        "claude",
+        help="ACP agent the 'acp' backend fronts: 'claude', 'gemini', 'codex', "
+        "or any agent reachable via --agent-command.",
+    ),
+    agent_command: str = typer.Option(
+        None,
+        help="Explicit launch command for an ACP agent, overriding --agent's "
+        "preset (e.g. 'npx -y @zed-industries/claude-agent-acp').",
+    ),
+    cwd: str = typer.Option(".", help="Project directory the coding agent works in."),
     host: str = typer.Option("127.0.0.1"),
     port: int = typer.Option(9100),
     permission_mode: str = typer.Option(
@@ -96,7 +118,14 @@ def serve(
     _validate_permission_mode(permission_mode)
 
     kwargs: dict[str, object] = {}
-    if backend == "claude":
+    card_name = None
+    if backend == "acp":
+        kwargs = {"agent": agent, "cwd": cwd}
+        if agent_command:
+            parts = agent_command.split()
+            kwargs["command"], kwargs["args"] = parts[0], parts[1:]
+        card_name = _AGENT_CARD_NAMES.get(agent, agent.capitalize())
+    elif backend == "claude":
         kwargs = {
             "cwd": cwd,
             "permission_mode": permission_mode,
@@ -129,10 +158,12 @@ def serve(
     asgi_app = build_app(
         drv,
         url=_local_url(host, port),
+        card_name=card_name,
         card_signer=card_signer,
         auth_token=auth_token,
     )
-    typer.echo(f"a2claude: backend={backend} card={_local_url(host, port)}")
+    label = f"{backend}:{agent}" if backend == "acp" else backend
+    typer.echo(f"a2claude: backend={label} card={_local_url(host, port)}")
     uvicorn.run(asgi_app, host=host, port=port, log_level="info")
 
 

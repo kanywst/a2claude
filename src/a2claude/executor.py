@@ -307,12 +307,22 @@ class ClaudeCodeExecutor(AgentExecutor):
             del self._session_ids[oldest]
 
     async def _evict_if_full(self) -> None:
-        """Drop the oldest live session when at capacity (likely an abandoned
-        input-required task that was never answered)."""
+        """Make room when at capacity.
+
+        Prefer evicting a parked session (an input-required task the caller
+        abandoned without answering) over one still actively running: a parked
+        task's ``_pump`` has already returned, so dropping it just closes a
+        stalled session, whereas discarding a running one would feed its blocked
+        ``_pump`` the done sentinel and complete the task with partial output.
+        Only when nothing is parked do we fall back to the oldest entry.
+        """
         while len(self._live) >= _MAX_LIVE:
-            oldest_id = next(iter(self._live))
-            logger.warning("evicting oldest live task %s at capacity", oldest_id)
-            await self._discard(oldest_id, self._live[oldest_id])
+            victim = next(
+                (tid for tid, s in self._live.items() if s.is_parked),
+                next(iter(self._live)),
+            )
+            logger.warning("evicting live task %s at capacity", victim)
+            await self._discard(victim, self._live[victim])
 
     async def _discard(self, task_id: str, session: BackendSession) -> None:
         self._live.pop(task_id, None)

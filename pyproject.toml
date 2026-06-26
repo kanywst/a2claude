@@ -1,21 +1,25 @@
 [project]
 name = "a2claude"
 version = "0.3.0"
-description = "Run Claude Code as an A2A protocol agent server."
+description = "Serve Claude Code and other ACP coding agents over the A2A protocol."
 readme = "README.md"
 requires-python = ">=3.13"
 license = "Apache-2.0"
 authors = [{ name = "kanywst" }]
-keywords = ["a2a", "claude-code", "agent", "agent2agent"]
+keywords = ["a2a", "acp", "claude-code", "agent", "agent2agent"]
 dependencies = [
     "a2a-sdk[http-server,signing]>=1.1,<2",
-    "claude-agent-sdk>=0.2.101",
+    "agent-client-protocol>=0.10,<1",
     "uvicorn>=0.49",
     "httpx>=0.28",
     "typer>=0.26",
 ]
 
 [project.optional-dependencies]
+# The Claude SDK backend (backends/claude.py): drives Claude Code directly
+# through the Claude Agent SDK instead of over ACP. The ACP backend fronts
+# Claude Code too, so this is only needed for the SDK-native path.
+claude = ["claude-agent-sdk>=0.2.101"]
 # Distributed tracing. Pulls the A2A SDK's OpenTelemetry instrumentation plus
 # the API a2claude's own spans import directly (declared rather than relied on
 # transitively through the SDK). Install with `a2claude[telemetry]`.
@@ -35,6 +39,9 @@ dev = [
     "mypy>=2.1",
     # So the test suite can exercise the tracing path with a real exporter.
     "opentelemetry-sdk>=1.33",
+    # The Claude SDK backend is an optional extra; pull it in for dev so its
+    # tests (test_claude_backend.py) run.
+    "claude-agent-sdk>=0.2.101",
 ]
 
 [build-system]

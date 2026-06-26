@@ -38,11 +38,15 @@ def build_app(
     backend: Backend,
     *,
     url: str,
+    card_name: str | None = None,
+    card_description: str | None = None,
     card_signer: Callable[[AgentCard], AgentCard] | None = None,
     auth_token: str | None = None,
 ) -> Starlette:
     card = build_card(
         url,
+        name=card_name or "Claude Code",
+        description=card_description,
         streaming=True,
         push_notifications=True,
         require_auth=auth_token is not None,

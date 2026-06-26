@@ -124,6 +124,8 @@ def serve(
         kwargs = {"agent": agent, "cwd": cwd}
         if agent_command:
             parts = shlex.split(agent_command)
+            if not parts:
+                raise typer.BadParameter("--agent-command is empty or whitespace-only")
             kwargs["command"], kwargs["args"] = parts[0], parts[1:]
         card_name = _AGENT_CARD_NAMES.get(agent, agent.capitalize())
     elif backend == "claude":

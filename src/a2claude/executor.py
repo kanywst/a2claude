@@ -45,7 +45,8 @@ _ALLOW_WORDS = {"allow", "yes", "y", "approve", "ok", "accept", "grant"}
 
 # Bound the in-memory maps so a long-running server cannot grow without limit
 # (e.g. from many contexts, or tasks left paused on a permission and never
-# answered). The least-recently-used entries are evicted first.
+# answered). The continuity cache (_MAX_CONTEXTS) evicts its least-recently-used
+# entry; the live-session map (_MAX_LIVE) evicts the oldest entry.
 _MAX_CONTEXTS = 4096
 _MAX_LIVE = 256
 

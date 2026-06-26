@@ -42,7 +42,9 @@ def _validate_permission_mode(value: str | None) -> None:
     except ImportError:
         return
 
-    valid = get_args(PermissionMode)
+    # Keep only string members, so a non-Literal form (e.g. a Union with
+    # non-string args) neither breaks the join below nor is matched against.
+    valid = [v for v in get_args(PermissionMode) if isinstance(v, str)]
     if valid and value not in valid:
         raise typer.BadParameter(
             f"invalid --permission-mode {value!r}; expected one of {', '.join(valid)}"
